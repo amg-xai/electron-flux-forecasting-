@@ -7,6 +7,8 @@ Built for Bharat Antriksh Hackathon — Problem Statement: *Forecasting Energeti
 
 ---
 
+**Scope note**: This is a research prototype validated on historical data (GOES-15, 2015-2019; decommissioned March 2020). It demonstrates the modeling approach and validates against independent ISRO data, but does not provide live forecasting. Operational deployment would require retraining on current GOES-16/17 data streams.
+
 ## The problem
 
 Energetic electrons trapped in Earth's outer radiation belt cause deep dielectric charging in geostationary satellites — a leading cause of in-orbit electronics failure. Predicting flux spikes before they occur gives satellite operators time to put payloads into safe mode.
@@ -26,10 +28,16 @@ Rather than a single model, we built two purpose-specific systems that work toge
 | Early warning classifier | AUC (6h / 12h) | 0.909 / 0.898 |
 | Early warning classifier | Recall (6h / 12h) | 0.831 / 0.833 |
 | Early warning classifier | Storm lead time (5 major storms, persistence-filtered) | 4/5 storms: +4 to +13 hours |
+| Early warning classifier | Operational false alarm rate (event-level, test set) | ~19 false alarms/year vs ~79 correctly detected storms/year |
 | Flux regression | RMSE log₁₀ flux (1h / 6h / 12h) | 0.223 / 0.333 / 0.378 |
 | Flux regression | Skill vs climatology (1h / 6h / 12h) | 0.71 / 0.57 / 0.52 |
+| Flux regression | Uncertainty quantification | MC Dropout, 90% CI reported per forecast |
 | Independent validation (raw data) | GOES-15 vs GRASP/GSAT-19 flux correlation | r = 0.604, p < 0.001, n = 3,739h |
 | Independent validation (model) | GOES-trained model predictions vs GRASP/GSAT-19 actual flux | r = 0.614, p < 0.001, n = 3,686h |
+
+### A note on sample size
+
+With only 5 major storms in our evaluation period, a naive binomial test against a 50% baseline does not reach significance (p=0.19) — we are transparent that our sample size is too small for strong statistical claims on its own. Against a more realistic null model (random alert timing within the ~10-day pre-storm window), the probability of achieving 4/5 successes by chance is p<0.0001, suggesting our results are unlikely to be pure luck. This analysis is illustrative rather than definitive given n=5, and we recommend validation on a larger storm catalogue (e.g. all Kp≥6 events from 2015-2019, ~15-20 storms) as future work.
 
 ## Why two models
 
@@ -39,9 +47,15 @@ We confirmed this with an ablation study: removing all flux-lag features costs 1
 
 The fix was architectural: a dedicated classifier trained with zero flux history, forced to learn precursor signatures. This single change took average lead time from negative to +4 to +13 hours on 4 of 5 major storms.
 
+### A note on threshold definition
+
+Our storm threshold (log₁₀ flux ≥ 3.5) was chosen empirically from our dataset's distribution rather than an external standard. Lead times reported are relative to this self-defined threshold; results may differ under NOAA's official G-scale geomagnetic storm classifications, which we did not have time to cross-validate against.
+
 ## Known limitation
 
 The classifier failed to give early warning on the April 2017 storm. Investigation showed this storm had an unusually fast, impulsive solar wind onset (8.08 km/s/hour rise rate vs 0.3-4 km/s/hour for successful detections) with weak sustained southward Bz exposure (33.5 nT·h vs 88-118 nT·h for storms we caught early). This is consistent with the known physical distinction between gradual CIR-driven storms and sudden shock-driven storms — our model has learned the former pattern well but has reduced sensitivity to the latter.
+
+A second, more general limitation: we used a single chronological 70/15/15 train/val/test split rather than k-fold cross-validation. Given the temporal nature of space weather data, standard k-fold CV would leak future information into training; a more rigorous approach would use multiple forward-chaining splits (e.g. train on 2015-2017, test on 2018; train on 2015-2018, test on 2019) to verify storm-level results are not specific to our chosen split. We did not have time to implement this and flag it as the most significant remaining methodological gap in this work.
 
 ## Validation against ISRO data
 
