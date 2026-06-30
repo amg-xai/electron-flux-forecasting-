@@ -7,6 +7,8 @@ Built for Bharat Antriksh Hackathon — Problem Statement: *Forecasting Energeti
 
 ---
 
+**🚀 Live demo: [electron-flux-forecast.streamlit.app](https://electron-flux-forecast.streamlit.app)**
+
 **Scope note**: This system is validated on historical data (GOES-15, 2015-2019) and demonstrates a forecasting methodology proven across 5 years of data, including independent cross-validation against ISRO's GRASP/GSAT-19 instrument. It is a research prototype, not a deployed real-time system — GOES-15 was decommissioned in March 2020, so live operational forecasting would require retraining on current GOES-16/17/19 data streams, which was outside the scope of this hackathon timeline.
 
 ## The problem
@@ -17,7 +19,7 @@ Energetic electrons trapped in Earth's outer radiation belt cause deep dielectri
 
 Rather than a single model, we built two purpose-specific systems that work together:
 
-**1. Early warning classifier** — predicts probability of a storm in the next 6h/12h using *only* solar wind precursor data (speed, IMF Bz, density, Kp, Dst). No flux history is given to this model, forcing it to learn genuine causal solar-wind-to-storm relationships rather than taking the easy autoregressive shortcut.
+**1. Early warning classifier** — predicts probability of a storm in the next 6h/12h using *only* solar wind precursor data (speed, IMF Bz, density, Kp, Dst). No flux history is given to this model, forcing it to learn genuine solar-wind-to-storm precursor relationships rather than taking the easy autoregressive shortcut.
 
 **2. Multi-horizon flux regression** — predicts the actual flux value at 1h, 6h, and 12h ahead, with separate LSTM encoders per horizon using horizon-appropriate feature sets.
 
