@@ -13,6 +13,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.model import ElectronFluxLSTM
 from src.classifier import StormClassifier, CLASSIFIER_FEATURES
 from src.features import get_feature_sets
+from src.uncertainty import enable_mc_dropout, predict_with_uncertainty
 
 BASE      = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MODEL_DIR = os.path.join(BASE, "models")
@@ -37,7 +38,7 @@ def load_regression_model():
     model.load_state_dict(torch.load(
         os.path.join(MODEL_DIR, 'best_model.pt'), map_location='cpu', weights_only=True
     ))
-    model.eval()
+    model = enable_mc_dropout(model)
     return model, scalers, features
 
 
@@ -65,9 +66,15 @@ def predict_regression(model, scalers, features, df, end_idx, seq_len=72):
     x1  = torch.tensor(scalers['1h'].transform(df[features['1h']].iloc[start_idx:end_idx].values), dtype=torch.float32).unsqueeze(0)
     x6  = torch.tensor(scalers['6h'].transform(df[features['6h']].iloc[start_idx:end_idx].values), dtype=torch.float32).unsqueeze(0)
     x12 = torch.tensor(scalers['12h'].transform(df[features['12h']].iloc[start_idx:end_idx].values), dtype=torch.float32).unsqueeze(0)
-    with torch.no_grad():
-        p1, p6, p12 = model(x1, x6, x12)
-    return {'1h': float(p1[0]), '6h': float(p6[0]), '12h': float(p12[0])}
+    result = predict_with_uncertainty(model, x1, x6, x12, n_samples=30)
+    return {
+        '1h':  result['1h']['mean'],
+        '6h':  result['6h']['mean'],
+        '12h': result['12h']['mean'],
+        '1h_ci':  (result['1h']['lower'], result['1h']['upper']),
+        '6h_ci':  (result['6h']['lower'], result['6h']['upper']),
+        '12h_ci': (result['12h']['lower'], result['12h']['upper']),
+    }
 
 
 def predict_classifier(model, scaler, df, end_idx, seq_len=72):
@@ -164,16 +171,22 @@ col1, col2, col3 = st.columns(3)
 if reg_preds:
     with col1:
         level, color = flux_to_level(reg_preds['1h'])
+        lo, hi = reg_preds['1h_ci']
         st.metric("1-Hour Forecast", f"{10**reg_preds['1h']:.0f} e/cm²/s/sr", f"log₁₀={reg_preds['1h']:.2f}")
         st.markdown(f"**Status: {level}**")
+        st.caption(f"90% CI: [{10**lo:.0f}, {10**hi:.0f}]")
     with col2:
         level, color = flux_to_level(reg_preds['6h'])
+        lo, hi = reg_preds['6h_ci']
         st.metric("6-Hour Forecast", f"{10**reg_preds['6h']:.0f} e/cm²/s/sr", f"log₁₀={reg_preds['6h']:.2f}")
         st.markdown(f"**Status: {level}**")
+        st.caption(f"90% CI: [{10**lo:.0f}, {10**hi:.0f}]")
     with col3:
         level, color = flux_to_level(reg_preds['12h'])
+        lo, hi = reg_preds['12h_ci']
         st.metric("12-Hour Forecast", f"{10**reg_preds['12h']:.0f} e/cm²/s/sr", f"log₁₀={reg_preds['12h']:.2f}")
         st.markdown(f"**Status: {level}**")
+        st.caption(f"90% CI: [{10**lo:.0f}, {10**hi:.0f}]")
 
 st.markdown("---")
 
