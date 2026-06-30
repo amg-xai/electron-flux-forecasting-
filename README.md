@@ -7,7 +7,9 @@ Built for Bharat Antriksh Hackathon — Problem Statement: *Forecasting Energeti
 
 ---
 
+
 **🚀 Live demo: [electron-flux-forecast.streamlit.app](https://electron-flux-forecast.streamlit.app)**
+
 
 **Scope note**: This system is validated on historical data (GOES-15, 2015-2019) and demonstrates a forecasting methodology proven across 5 years of data, including independent cross-validation against ISRO's GRASP/GSAT-19 instrument. It is a research prototype, not a deployed real-time system — GOES-15 was decommissioned in March 2020, so live operational forecasting would require retraining on current GOES-16/17/19 data streams, which was outside the scope of this hackathon timeline.
 
