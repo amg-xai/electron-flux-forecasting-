@@ -7,7 +7,7 @@ Built for Bharat Antriksh Hackathon — Problem Statement: *Forecasting Energeti
 
 ---
 
-**Scope note**: This is a research prototype validated on historical data (GOES-15, 2015-2019; decommissioned March 2020). It demonstrates the modeling approach and validates against independent ISRO data, but does not provide live forecasting. Operational deployment would require retraining on current GOES-16/17 data streams.
+**Scope note**: This system is validated on historical data (GOES-15, 2015-2019) and demonstrates a forecasting methodology proven across 5 years of data, including independent cross-validation against ISRO's GRASP/GSAT-19 instrument. It is a research prototype, not a deployed real-time system — GOES-15 was decommissioned in March 2020, so live operational forecasting would require retraining on current GOES-16/17/19 data streams, which was outside the scope of this hackathon timeline.
 
 ## The problem
 
