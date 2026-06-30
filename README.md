@@ -28,7 +28,8 @@ Rather than a single model, we built two purpose-specific systems that work toge
 | Early warning classifier | Storm lead time (5 major storms, persistence-filtered) | 4/5 storms: +4 to +13 hours |
 | Flux regression | RMSE log₁₀ flux (1h / 6h / 12h) | 0.223 / 0.333 / 0.378 |
 | Flux regression | Skill vs climatology (1h / 6h / 12h) | 0.71 / 0.57 / 0.52 |
-| Independent validation | GOES-15 vs GRASP/GSAT-19 correlation | r = 0.604, p < 0.001, n = 3,739h |
+| Independent validation (raw data) | GOES-15 vs GRASP/GSAT-19 flux correlation | r = 0.604, p < 0.001, n = 3,739h |
+| Independent validation (model) | GOES-trained model predictions vs GRASP/GSAT-19 actual flux | r = 0.614, p < 0.001, n = 3,686h |
 
 ## Why two models
 
@@ -44,8 +45,11 @@ The classifier failed to give early warning on the April 2017 storm. Investigati
 
 ## Validation against ISRO data
 
-The PS specifically asks for validation against ISRO's own GRASP/GSAT-19 payload. We retrieved 410 days of GRASP daily files from the PRADAN portal (185 successfully parsed after filtering corrupted downloads), covering July 2017 - January 2018. Despite GRASP and GOES-15 using different instruments, different energy thresholds, and being positioned at opposite longitudes, electron flux measurements correlate at r=0.604 (p<0.001) — strong evidence that both instruments are tracking the same underlying radiation belt physics, and that our model's findings generalize to the Indian operational environment.
+The PS specifically asks for validation against ISRO's own GRASP/GSAT-19 payload. We retrieved 410 days of GRASP daily files from the PRADAN portal (185 successfully parsed after filtering corrupted downloads), covering July 2017 - January 2018.
 
+We performed two levels of validation. First, raw GOES-15 and GRASP electron flux measurements correlate at r=0.604 (p<0.001, n=3,739h) — evidence that both instruments, despite different energy thresholds and opposite longitudes, are tracking the same underlying radiation belt dynamics.
+
+Second, and more rigorously, we ran our trained regression model (trained exclusively on GOES-15 and OMNI data, with zero exposure to GRASP) on solar wind inputs during the overlap period and compared its predictions directly against actual GRASP-measured flux. This achieved r=0.614 (p<0.001, n=3,686h) — confirming that the model's learned solar-wind-to-flux relationship genuinely generalizes to an independent satellite and longitude, rather than memorizing GOES-specific instrument characteristics.
 ## Architecture
 
 See `architecture_diagram.png` for the full pipeline.
