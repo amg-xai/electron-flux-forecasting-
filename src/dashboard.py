@@ -21,7 +21,66 @@ DATA_PATH = os.path.join(BASE, "data", "features.csv")
 ALERT_THRESHOLD = 3.5
 
 st.set_page_config(page_title="Electron Flux Forecaster", page_icon="🛰️", layout="wide")
-
+st.markdown("""
+<style>
+    .main { background-color: #0a0e14; }
+    
+    [data-testid="stMetricValue"] {
+        font-size: 2.2rem;
+        font-weight: 700;
+    }
+    
+    [data-testid="stMetric"] {
+        background: linear-gradient(135deg, #131a24 0%, #0d1117 100%);
+        border: 1px solid #1f2937;
+        border-radius: 12px;
+        padding: 16px 20px;
+    }
+    
+    .risk-badge {
+        display: inline-block;
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.85rem;
+        letter-spacing: 0.5px;
+        margin-top: 4px;
+    }
+    .risk-low { background: rgba(68, 255, 136, 0.15); color: #44ff88; border: 1px solid rgba(68, 255, 136, 0.3); }
+    .risk-moderate { background: rgba(255, 153, 68, 0.15); color: #ff9944; border: 1px solid rgba(255, 153, 68, 0.3); }
+    .risk-high { background: rgba(255, 68, 68, 0.15); color: #ff4444; border: 1px solid rgba(255, 68, 68, 0.3); }
+    
+    h1 { 
+        background: linear-gradient(90deg, #00d4ff 0%, #7c3aed 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-weight: 800;
+    }
+    
+    h2, h3 { color: #e5e7eb; font-weight: 600; }
+    
+    .stButton button {
+        background: #1a2332;
+        border: 1px solid #2d3748;
+        color: #e5e7eb;
+        border-radius: 8px;
+        transition: all 0.2s;
+    }
+    .stButton button:hover {
+        background: #2d3748;
+        border-color: #00d4ff;
+    }
+    
+    [data-testid="stSidebar"] {
+        background: #0d1117;
+        border-right: 1px solid #1f2937;
+    }
+    
+    .stCaption { color: #6b7280; }
+    
+    hr { border-color: #1f2937; }
+</style>
+""", unsafe_allow_html=True)
 
 # ── Load models ────────────────────────────────────────────────────────────────
 @st.cache_resource
@@ -101,8 +160,14 @@ def prob_to_risk(prob):
 
 
 # ── UI ─────────────────────────────────────────────────────────────────────────
-st.title("🛰️ Electron Flux Forecasting System")
-st.markdown("**ISRO Geostationary Satellite Radiation Environment Monitor — Two-Stage Pipeline**")
+st.markdown("""
+<div style="padding: 20px 0 10px 0;">
+    <h1 style="margin-bottom: 4px;">Electron Flux Forecasting System</h1>
+    <p style="color: #6b7280; font-size: 1rem; margin-top: 0;">
+        ISRO Geostationary Satellite Radiation Environment Monitor &nbsp;·&nbsp; Two-Stage Pipeline
+    </p>
+</div>
+""", unsafe_allow_html=True)
 st.markdown("---")
 
 reg_model, reg_scalers, reg_features = load_regression_model()
@@ -147,25 +212,45 @@ reg_preds = predict_regression(reg_model, reg_scalers, reg_features, df, selecte
 clf_preds = predict_classifier(clf_model, clf_scaler, df, selected_idx)
 
 # ── Early Warning Panel ─────────────────────────────────────────────────────────
-st.subheader("⚠️ Early Warning Classifier — Storm Probability (Solar Wind Precursors Only)")
+st.markdown("""
+<div style="background: linear-gradient(135deg, #1a1410 0%, #0d1117 100%); 
+            border: 1px solid #2d2417; border-left: 3px solid #ff9944;
+            border-radius: 12px; padding: 16px 20px; margin-bottom: 16px;">
+    <h3 style="margin: 0; color: #ff9944;">⚠ Early warning classifier — storm probability</h3>
+    <p style="margin: 4px 0 0 0; color: #6b7280; font-size: 0.9rem;">Solar wind precursors only</p>
+</div>
+""", unsafe_allow_html=True)
 col1, col2 = st.columns(2)
+
+def risk_badge_html(prob):
+    if prob >= 0.7:
+        return '<span class="risk-badge risk-high">● HIGH RISK</span>'
+    elif prob >= 0.4:
+        return '<span class="risk-badge risk-moderate">● MODERATE RISK</span>'
+    else:
+        return '<span class="risk-badge risk-low">● LOW RISK</span>'
 
 if clf_preds:
     with col1:
-        risk, color = prob_to_risk(clf_preds['6h'])
         st.metric("P(storm in next 6h)", f"{clf_preds['6h']*100:.1f}%")
-        st.markdown(f"**{risk}**")
+        st.markdown(risk_badge_html(clf_preds['6h']), unsafe_allow_html=True)
     with col2:
-        risk, color = prob_to_risk(clf_preds['12h'])
         st.metric("P(storm in next 12h)", f"{clf_preds['12h']*100:.1f}%")
-        st.markdown(f"**{risk}**")
+        st.markdown(risk_badge_html(clf_preds['12h']), unsafe_allow_html=True)
 
 st.caption("Classifier uses ONLY solar wind precursor features (Vsw, Bz, density, Kp, Dst) — no flux autoregression. Validated AUC: 0.90 (6h), 0.90 (12h).")
 
 st.markdown("---")
 
 # ── Regression Forecast Panel ────────────────────────────────────────────────────
-st.subheader("📊 Flux Forecast — Multi-Horizon LSTM")
+st.markdown("""
+<div style="background: linear-gradient(135deg, #0d1a1f 0%, #0d1117 100%); 
+            border: 1px solid #1a2d33; border-left: 3px solid #00d4ff;
+            border-radius: 12px; padding: 16px 20px; margin-bottom: 16px;">
+    <h3 style="margin: 0; color: #00d4ff;">📊 Flux forecast — multi-horizon LSTM</h3>
+    <p style="margin: 4px 0 0 0; color: #6b7280; font-size: 0.9rem;">Predicted electron flux with 90% confidence intervals</p>
+</div>
+""", unsafe_allow_html=True)
 col1, col2, col3 = st.columns(3)
 
 if reg_preds:
