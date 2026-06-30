@@ -115,6 +115,10 @@ streamlit run src/dashboard.py   # launch dashboard
 - OMNI solar wind parameters (Vsw, Bz, density, Kp, Dst), hourly, 2015-2025 — NASA OMNIWeb
 - GRASP/GSAT-19 electron flux, daily files, 2017-2018 — ISRO PRADAN/ISSDC
 
+### Native format support
+
+The PS specifies reading data archived in CDF format. The NOAA NCEI GOES archive provides science-quality electron flux in NetCDF (.nc) — a closely related self-describing binary scientific format. `src/cdf_reader.py` demonstrates reading this native format directly, extracting the E2 (>2 MeV) electron flux channels (E2E_UNCOR_FLUX, E2W_UNCOR_FLUX) in units of e/(cm²·s·sr). Our main pipeline uses the CSV exports of these same files for processing convenience, but the native-format reading capability is demonstrated and verified against the same October 2017 data used in GRASP cross-validation.
+
 ## Team
 
-[Add your team names here]
+Team Aether : Ajitamani Gupta, Kaustubh Shah, Prateek Singh
