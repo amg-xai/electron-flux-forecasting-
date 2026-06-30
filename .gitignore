@@ -1,0 +1,10 @@
+venv/
+venv311/
+__pycache__/
+*.pyc
+data/goes_data/
+data/grasp_data/
+data/omni_data/
+*.csv
+*.zip
+.vscode/
