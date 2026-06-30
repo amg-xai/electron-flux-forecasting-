@@ -9,8 +9,13 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from datetime import timedelta
 
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from src.model import ElectronFluxLSTM
+from src.magnetosphere_viz import generate_magnetosphere_html
+import streamlit.components.v1 as components
 from src.classifier import StormClassifier, CLASSIFIER_FEATURES
 from src.features import get_feature_sets
 from src.uncertainty import enable_mc_dropout, predict_with_uncertainty
@@ -211,6 +216,24 @@ history_hours = st.sidebar.selectbox("History window", [72, 120, 168, 240], inde
 reg_preds = predict_regression(reg_model, reg_scalers, reg_features, df, selected_idx)
 clf_preds = predict_classifier(clf_model, clf_scaler, df, selected_idx)
 
+# ── Magnetosphere visualization — at-a-glance physical state ──────────────────
+vsw_now = float(df['Vsw'].iloc[selected_idx])
+bz_now = float(df['Bz_GSM'].iloc[selected_idx])
+flux_now = float(df['log_flux'].iloc[selected_idx])
+
+st.markdown("""
+<div style="background: linear-gradient(135deg, #0a0e14 0%, #0d1117 100%); 
+            border: 1px solid #1f2937; border-left: 3px solid #7c3aed;
+            border-radius: 12px; padding: 16px 20px; margin-bottom: 16px;">
+    <h3 style="margin: 0; color: #a78bfa;">🌍 Magnetosphere — live physical state</h3>
+    <p style="margin: 4px 0 0 0; color: #6b7280; font-size: 0.9rem;">Solar wind interaction at selected timestamp</p>
+</div>
+""", unsafe_allow_html=True)
+
+components.html(generate_magnetosphere_html(vsw_now, bz_now, flux_now), height=520)
+
+st.markdown("---")
+
 # ── Early Warning Panel ─────────────────────────────────────────────────────────
 st.markdown("""
 <div style="background: linear-gradient(135deg, #1a1410 0%, #0d1117 100%); 
@@ -243,14 +266,7 @@ st.caption("Classifier uses ONLY solar wind precursor features (Vsw, Bz, density
 st.markdown("---")
 
 # ── Regression Forecast Panel ────────────────────────────────────────────────────
-st.markdown("""
-<div style="background: linear-gradient(135deg, #0d1a1f 0%, #0d1117 100%); 
-            border: 1px solid #1a2d33; border-left: 3px solid #00d4ff;
-            border-radius: 12px; padding: 16px 20px; margin-bottom: 16px;">
-    <h3 style="margin: 0; color: #00d4ff;">📊 Flux forecast — multi-horizon LSTM</h3>
-    <p style="margin: 4px 0 0 0; color: #6b7280; font-size: 0.9rem;">Predicted electron flux with 90% confidence intervals</p>
-</div>
-""", unsafe_allow_html=True)
+st.subheader("📊 Flux Forecast — Multi-Horizon LSTM")
 col1, col2, col3 = st.columns(3)
 
 if reg_preds:
@@ -275,62 +291,77 @@ if reg_preds:
 
 st.markdown("---")
 
-# ── Light Curve Plot ────────────────────────────────────────────────────────────
-st.subheader("📈 Electron Flux Light Curve")
+# ── Light Curve Plot (interactive Plotly) ───────────────────────────────────────
+st.markdown("""
+<div style="background: linear-gradient(135deg, #0d1a1f 0%, #0d1117 100%); 
+            border: 1px solid #1a2d33; border-left: 3px solid #00d4ff;
+            border-radius: 12px; padding: 16px 20px; margin-bottom: 16px;">
+    <h3 style="margin: 0; color: #00d4ff;">📈 Electron flux light curve</h3>
+    <p style="margin: 4px 0 0 0; color: #6b7280; font-size: 0.9rem;">Hover any point for exact values · drag to zoom · click legend to toggle</p>
+</div>
+""", unsafe_allow_html=True)
 
 plot_start = max(0, selected_idx - history_hours)
 plot_df = df.iloc[plot_start:selected_idx+1]
 
-fig, axes = plt.subplots(3, 1, figsize=(14, 10), sharex=True)
-fig.patch.set_facecolor('#0e1117')
+fig = make_subplots(
+    rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.06,
+    subplot_titles=("Electron Flux >2 MeV (GOES-15)", "Solar Wind Speed", "IMF Bz (Southward = Storm Driver)")
+)
 
-ax1 = axes[0]
-ax1.set_facecolor('#0e1117')
-ax1.plot(plot_df.index, plot_df['log_flux'], color='cyan', linewidth=1, label='>2 MeV flux')
-ax1.axhline(y=3.5, color='orange', linestyle='--', alpha=0.7, label='HIGH threshold')
-ax1.axhline(y=4.0, color='red', linestyle='--', alpha=0.7, label='SEVERE threshold')
-ax1.axvline(x=selected_time, color='white', linestyle=':', alpha=0.8, label='Now')
+# Panel 1: Flux
+fig.add_trace(go.Scatter(
+    x=plot_df.index, y=plot_df['log_flux'], mode='lines', name='>2 MeV flux',
+    line=dict(color='cyan', width=1.5),
+    hovertemplate='%{x|%Y-%m-%d %H:%M}<br>log₁₀ flux: %{y:.2f}<extra></extra>'
+), row=1, col=1)
+
+fig.add_hline(y=3.5, line_dash="dash", line_color="orange", opacity=0.6, row=1, col=1)
+fig.add_hline(y=4.0, line_dash="dash", line_color="red", opacity=0.6, row=1, col=1)
 
 if reg_preds:
-    future_times = [selected_time + timedelta(hours=1), selected_time + timedelta(hours=6), selected_time + timedelta(hours=12)]
+    future_times = [selected_time + timedelta(hours=h) for h in [1, 6, 12]]
     future_vals  = [reg_preds['1h'], reg_preds['6h'], reg_preds['12h']]
-    ax1.scatter(future_times, future_vals, color='yellow', zorder=5, s=80, label='Regression forecast')
-    ax1.plot([selected_time] + future_times, [plot_df['log_flux'].iloc[-1]] + future_vals, color='yellow', linestyle='--', alpha=0.6)
+    fig.add_trace(go.Scatter(
+        x=future_times, y=future_vals, mode='markers+lines', name='Forecast',
+        line=dict(color='yellow', width=2, dash='dash'),
+        marker=dict(color='yellow', size=10, symbol='circle'),
+        hovertemplate='%{x|%Y-%m-%d %H:%M}<br>Forecast log₁₀: %{y:.2f}<extra></extra>'
+    ), row=1, col=1)
 
-ax1.set_ylabel('log₁₀ Flux', color='white')
-ax1.tick_params(colors='white')
-ax1.legend(loc='upper left', facecolor='#1e1e1e', labelcolor='white', fontsize=8)
-ax1.set_title('Electron Flux >2 MeV (GOES-15)', color='white')
-for spine in ax1.spines.values(): spine.set_edgecolor('#333')
+# Panel 2: Solar wind speed
+fig.add_trace(go.Scatter(
+    x=plot_df.index, y=plot_df['Vsw'], mode='lines', name='Vsw',
+    line=dict(color='lime', width=1.5),
+    hovertemplate='%{x|%Y-%m-%d %H:%M}<br>Vsw: %{y:.0f} km/s<extra></extra>'
+), row=2, col=1)
+fig.add_hline(y=600, line_dash="dash", line_color="orange", opacity=0.4, row=2, col=1)
 
-ax2 = axes[1]
-ax2.set_facecolor('#0e1117')
-ax2.plot(plot_df.index, plot_df['Vsw'], color='lime', linewidth=1)
-ax2.axhline(y=600, color='orange', linestyle='--', alpha=0.5, label='High speed')
-ax2.axvline(x=selected_time, color='white', linestyle=':', alpha=0.8)
-ax2.set_ylabel('Vsw (km/s)', color='white')
-ax2.tick_params(colors='white')
-ax2.set_title('Solar Wind Speed', color='white')
-ax2.legend(fontsize=8)
-for spine in ax2.spines.values(): spine.set_edgecolor('#333')
+# Panel 3: Bz
+fig.add_trace(go.Scatter(
+    x=plot_df.index, y=plot_df['Bz_GSM'], mode='lines', name='Bz',
+    line=dict(color='magenta', width=1.5),
+    hovertemplate='%{x|%Y-%m-%d %H:%M}<br>Bz: %{y:.1f} nT<extra></extra>'
+), row=3, col=1)
+fig.add_hline(y=0, line_color="gray", opacity=0.4, row=3, col=1)
 
-ax3 = axes[2]
-ax3.set_facecolor('#0e1117')
-ax3.plot(plot_df.index, plot_df['Bz_GSM'], color='magenta', linewidth=1)
-ax3.axhline(y=0, color='white', linestyle='-', alpha=0.3)
-ax3.axhline(y=-10, color='red', linestyle='--', alpha=0.5, label='Storm threshold')
-ax3.fill_between(plot_df.index, plot_df['Bz_GSM'], 0, where=plot_df['Bz_GSM'] < 0, color='red', alpha=0.2, label='Southward Bz')
-ax3.set_ylabel('Bz GSM (nT)', color='white')
-ax3.tick_params(colors='white')
-ax3.set_title('IMF Bz (Southward = Storm Driver)', color='white')
-ax3.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
-plt.setp(ax3.xaxis.get_majorticklabels(), rotation=30, color='white')
-ax3.legend(fontsize=8)
-for spine in ax3.spines.values(): spine.set_edgecolor('#333')
+# "Now" vertical line across all panels
+for r in [1, 2, 3]:
+    fig.add_vline(x=selected_time, line_dash="dot", line_color="white", opacity=0.6, row=r, col=1)
 
-plt.tight_layout()
-st.pyplot(fig)
-plt.close()
+fig.update_layout(
+    height=650, template="plotly_dark",
+    paper_bgcolor='#0e1117', plot_bgcolor='#0e1117',
+    hovermode='x unified',
+    showlegend=True,
+    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+    margin=dict(l=60, r=30, t=60, b=40)
+)
+fig.update_yaxes(title_text="log₁₀ Flux", row=1, col=1)
+fig.update_yaxes(title_text="Vsw (km/s)", row=2, col=1)
+fig.update_yaxes(title_text="Bz GSM (nT)", row=3, col=1)
+
+st.plotly_chart(fig, use_container_width=True)
 
 # ── Storm Event Table ───────────────────────────────────────────────────────────
 st.markdown("---")
