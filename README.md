@@ -78,6 +78,7 @@ GOES-15 + OMNI/Wind + GRASP  →  Feature engineering  →  Early warning classi
 →  Interactive dashboard
 
 ## Project structure
+```
 electron_flux_project/
 ├── data/                       # GOES, OMNI, GRASP raw + processed data
 ├── models/                     # Trained model weights, scalers
@@ -95,6 +96,7 @@ electron_flux_project/
 │   ├── grasp_validation.py     # Cross-instrument validation
 │   └── dashboard.py            # Streamlit interactive dashboard
 └── README.md
+```
 
 
 ## Running it
